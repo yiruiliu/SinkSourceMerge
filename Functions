@@ -308,7 +308,7 @@ NCRateRegionOBAnetpartia2:=function ( ncinstance, usesym, optargs,listofedges)
               return 1;
           end;
         if not row = List( [ 1 .. Size( row ) ], onemap )  then
-            row1:=Concatenation(row,[0])
+            row1:=Concatenation(row,[0]);
             Append( A3, [ row1] );
         fi;
     od;
