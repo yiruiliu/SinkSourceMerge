@@ -348,7 +348,7 @@ NCRateRegionOBAnetpartial2:=function ( ncinstance, usesym, optargs,listofedges)
         onemap := function ( x )
               return 1;
           end;
-        if not row = List( [ 1 .. Size( row ) ], onemap )  then
+        if not row[Size(row)] >0  then
             Append( rrA, [ row{[ 1 .. Size( row ) - 1 ]} ] );
             Append( rrb, [ row[Size( row )] ] );
         fi;
