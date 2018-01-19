@@ -358,7 +358,7 @@ NCRateRegionOBAnetpartial2:=function ( ncinstance, usesym, optargs,listofedges)
     for O  in Oi  do
         Append( trans_ineq, [ O[1] ] );
     od;
-    return [ trans_ineq, RRparse( ncinstance, trans_ineq )];
+    return [ trans_ineq, RRparse( ncinstance, trans_ineq ),rlist1];
 end;
 
 ###############Subfunction that permutes column "c1" of matrix "A"
@@ -581,7 +581,7 @@ NCRateRegionOBGRO:=function ( ncinstance, usesym, optargs,listofedges)
     for O  in Oi  do
         Append( trans_ineq, [ O[1] ] );
     od;
-    return [ trans_ineq, RRparse( ncinstance, trans_ineq )];
+    return [ trans_ineq, RRparse( ncinstance, trans_ineq ),rlist1];
 end;
 
 #######subfuntion concatenation two outer bound
