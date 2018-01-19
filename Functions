@@ -1,1 +1,585 @@
+#### transform a QW-form network into Jayant's form
+nettransform:=function(network)
+local a, i, b, c, e1, e2, e, f, nSources, nEdgesSource,j,Edges;
+a:=network[1];
+e:=[ ];
+	while Size(a)>0 do
+		b:=[a[1][1]];
+		c:=[a[1]];
+			for i in [2..Size(a)] do
+				if a[1][2]=a[i][2] then
+					Append(b,[a[i][1]]);
+					Append(c,[a[i]]);
+				fi;
+			od;
+		e1:=Union(a[1][2],b);
+		e2:=[a[1][2],e1];
+		Append(e,[e2]);
+		a:=Difference(a,c);
+	od;
+a:=network[2];
+f:=[ ];
+	while Size(a)>0 do
+		b:=[a[1][1]];
+		c:=[a[1]];
+			for i in [2..Size(a)] do
+				if a[1][2]=a[i][2] then
+					Append(b,[a[i][1]]);
+					Append(c,[a[i]]);
+				fi;
+			od;
 
+		e1:=Union(a[1][2],b);
+		e2:=[a[1][2],e1];
+		Append(f,[e2]);
+		a:=Difference(a,c);
+	od;
+Append(e,f);
+e:=[e];
+nSources:=network[1][1][1]-1;
+Edges:=[];
+	for j in [1..Size(network[1])] do
+		Append(Edges,[network[1][j][1]]);
+	od;
+nEdgesSource:=Maximum(Edges);
+Append(e,[nSources]);
+Append(e,[nEdgesSource]);
+return e;
+end;
+
+#####subfunction that generates equality constraints
+EqualityGenerate:=function(A,B,c)
+	local list,i,j;
+	list:=ZeroMutable( [ 1 .. 2^c-1 ] );
+	for i in [1..Size(A)] do
+		list[set2int(A[i])]:=1;
+	od;
+	for j in [1..Size(B)] do
+		list[set2int(B[j])]:=-1;
+	od;
+	list:=Concatenation(ZeroMutable( [ 1 .. c] ),list);
+	return list;
+end;
+
+#######add equivalent constraint for Anet h5+h6=h(In(t1)); h5=h(In(t1))+h(In(t2))-h(In(t1),In(t2)); h7+h5=h(In(t2)). 
+####### h5 is the full common information which is I(In(t2),In(t1))
+NCRateRegionOBAnetFull:=function ( ncinstance, usesym, optargs,cedge, extraedge1,extraedge2)
+local  rlist, A, b, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
+    onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,A1,B1,B2,A2,c,list,dif;
+    rlist := NCShannonBounded( ncinstance );
+    A := rlist[1];
+    b := rlist[2];
+    linrows := rlist[3];
+    if usesym = false  then
+        G := Group( [ () ] );
+    else
+        G := NetSymGroup( ncinstance );
+    fi;
+    if Size( optargs ) > 0  then
+        nslist := [  ];
+        nsrec := optargs[1];
+        for idx  in RecNamesInt( nsrec )  do
+            lolos := nsrec.(idx);
+            for los  in lolos  do
+                if idx = 1  then
+                    ineq := ZYNonShannon( los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                else
+                    ineq := DFZNonShannon( idx - 1, los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                fi;
+            od;
+        od;
+        Append( A, nslist );
+        Append( b, ZeroMutable( [ 1 .. Size( nslist ) ] ) );
+    fi;
+    #####for Augmented network only
+    A1:=[];
+    B1:=[];
+    c:=ncinstance[3];
+    for i in [1..Size(ncinstance[1])] do
+		dif:=Difference(ncinstance[1][i][2],ncinstance[1][i][1]);
+		for j in [1..Size(dif)] do
+			if dif[j]=cedge then
+				Append(A1,[ncinstance[1][i][1]]);
+			fi; 
+		od;
+    od;
+    B1:=[Union(A1[1],A1[2])];
+    B2:=[Union(A1[1],A1[2])];
+    A2:=[cedge,extraedge1,extraedge2];
+    Append(B1,[[cedge]]);
+    list:=EqualityGenerate(A1,B1,c);
+    Append(A,[list]);
+    Append(b,[0]);
+    Append(linrows,[Size(b)]);
+    A1:=[];
+    B1:=[];
+    for i in [1..Size(ncinstance[1])] do
+		dif:=Difference(ncinstance[1][i][2],ncinstance[1][i][1]);
+		for j in [1..Size(dif)] do
+			if dif[j]=extraedge1 then
+				Append(A1,[ncinstance[1][i][1]]);
+				Append(B1,[[extraedge1]]);
+				Append(B1,[[cedge]]);
+			fi; 
+		od;
+    od;
+    list:=EqualityGenerate(A1,B1,c);
+    Append(A,[list]);
+    Append(b,[0]);
+    Append(linrows,[Size(b)]);
+     A1:=[];
+    B1:=[];
+    for i in [1..Size(ncinstance[1])] do
+		dif:=Difference(ncinstance[1][i][2],ncinstance[1][i][1]);
+		for j in [1..Size(dif)] do
+			if dif[j]=extraedge2 then
+				Append(A1,[ncinstance[1][i][1]]);
+				Append(B1,[[extraedge2]]);
+				Append(B1,[[cedge]]);
+			fi; 
+		od;
+    od;
+    list:=EqualityGenerate(A1,B1,c);
+    Append(A,[list]);
+    Append(b,[0]);
+   Append(linrows,[Size(b)]);
+    #####
+    rlist1 := symCHM( A, b, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
+       false );
+    Display( Concatenation( "stats:  No. of LPs solved = ", 
+       String( rlist1[3][1] ), ", \n\t No. of facets = ", 
+       String( Size( rlist1[2] ) ), 
+       ", \n\tDD stepsizes beyond initial hull = ", String( rlist1[3][2] ) ) 
+     );
+    rrA := [  ];
+    rrb := [  ];
+    for row  in rlist1[2]  do
+        onemap := function ( x )
+              return 1;
+          end;
+        if not row = List( [ 1 .. Size( row ) ], onemap )  then
+            Append( rrA, [ row{[ 1 .. Size( row ) - 1 ]} ] );
+            Append( rrb, [ row[Size( row )] ] );
+        fi;
+    od;
+    trans_ineq := [  ];
+    Oi := OrbitsDomain( G, rrA, OnProjIneq );
+    for O  in Oi  do
+        Append( trans_ineq, [ O[1] ] );
+    od;
+    return [ trans_ineq, RRparse( ncinstance, trans_ineq ) ];
+end;
+
+##########function that computes the outer bound of Anet under partial common information decomposition on sinks.
+##########partial common information decompostion means to add only one equivalent constraint h5=h6+h7-h67
+NCRateRegionOBAnetpartial:=function ( ncinstance, usesym, optargs,listofedges)
+    local  rlist, A, b, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, cedge, extraedge1,extraedge2,
+    onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,A1,B1,B2,A2,c,list,dif,Ab;
+    cedge:= listofedges[1];
+    extraedge1:= listofedges[2];
+    extraedge2:= listofedges[3];
+    rlist := NCShannonBounded( ncinstance );
+    A := rlist[1];
+    b := rlist[2];
+    linrows := rlist[3];
+    if usesym = false  then
+        G := Group( [ () ] );
+    else
+        G := NetSymGroup( ncinstance );
+    fi;
+    if Size( optargs ) > 0  then
+        nslist := [  ];
+        nsrec := optargs[1];
+        for idx  in RecNamesInt( nsrec )  do
+            lolos := nsrec.(idx);
+            for los  in lolos  do
+                if idx = 1  then
+                    ineq := ZYNonShannon( los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                else
+                    ineq := DFZNonShannon( idx - 1, los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                fi;
+            od;
+        od;
+        Append( A, nslist );
+        Append( b, ZeroMutable( [ 1 .. Size( nslist ) ] ) );
+    fi;
+    #####for Augmented network only
+    A1:=[];
+    B1:=[];
+    c:=ncinstance[3];
+    A1:=[[cedge],[extraedge1,extraedge2]];
+    B1:=[[extraedge1],[extraedge2]];
+    list:=EqualityGenerate(A1,B1,c);
+    Append(A,[list]);
+    Append(b,[0]);
+    Append(linrows,[Size(b)]);
+    
+    A:=Justmatrixperm(A,ncinstance,listofedges);
+    #####
+    rlist1 := symCHM( A, b, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
+       false );
+    Display( Concatenation( "stats:  No. of LPs solved = ", 
+       String( rlist1[3][1] ), ", \n\t No. of facets = ", 
+       String( Size( rlist1[2] ) ), 
+       ", \n\tDD stepsizes beyond initial hull = ", String( rlist1[3][2] ) ) 
+     );
+    rrA := [  ];
+    rrb := [  ];
+    for row  in rlist1[2]  do
+        onemap := function ( x )
+              return 1;
+          end;
+        if not row = List( [ 1 .. Size( row ) ], onemap )  then
+            Append( rrA, [ row{[ 1 .. Size( row ) - 1 ]} ] );
+            Append( rrb, [ row[Size( row )] ] );
+        fi;
+    od;
+    trans_ineq := [  ];
+    Oi := OrbitsDomain( G, rrA, OnProjIneq );
+    for O  in Oi  do
+        Append( trans_ineq, [ O[1] ] );
+    od;
+    return [ trans_ineq, RRparse( ncinstance, trans_ineq ),rlist1 ];
+end;
+
+NCRateRegionOBAnetpartia2:=function ( ncinstance, usesym, optargs,listofedges)
+    local  rlist, A, b, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, cedge, extraedge1,extraedge2,
+    onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,A1,B1,B2,A2,c,list,dif,Ab,
+    A3,b3,linrows3,row1,coneq;
+    cedge:= listofedges[1];
+    extraedge1:= listofedges[2];
+    extraedge2:= listofedges[3];
+    rlist := NCShannonBounded( ncinstance );
+    A := rlist[1];
+    b := rlist[2];
+    linrows := rlist[3];
+    if usesym = false  then
+        G := Group( [ () ] );
+    else
+        G := NetSymGroup( ncinstance );
+    fi;
+    if Size( optargs ) > 0  then
+        nslist := [  ];
+        nsrec := optargs[1];
+        for idx  in RecNamesInt( nsrec )  do
+            lolos := nsrec.(idx);
+            for los  in lolos  do
+                if idx = 1  then
+                    ineq := ZYNonShannon( los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                else
+                    ineq := DFZNonShannon( idx - 1, los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                fi;
+            od;
+        od;
+        Append( A, nslist );
+        Append( b, ZeroMutable( [ 1 .. Size( nslist ) ] ) );
+    fi;
+    #####for Augmented network only
+    A1:=[];
+    B1:=[];
+    c:=ncinstance[3];
+    A1:=[[cedge],[extraedge1,extraedge2]];
+    B1:=[[extraedge1],[extraedge2]];
+    list:=EqualityGenerate(A1,B1,c);
+    Append(A,[list]);
+    Append(b,[0]);
+    Append(linrows,[Size(b)]);
+    
+    A:=Justmatrixperm(A,ncinstance,listofedges);
+    #####
+    rlist1 := symCHM( A, b, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
+       false );
+     #######
+     A3:=[];
+     for row  in rlist1[2]  do
+        onemap := function ( x )
+              return 1;
+          end;
+        if not row = List( [ 1 .. Size( row ) ], onemap )  then
+            row1:=Concatenation(row,[0])
+            Append( A3, [ row1] );
+        fi;
+    od;
+     b3:=ZeroMutable([1..Size(A3)]);
+     linrows3:=[];
+     coneq:=ZeroMutable([1..Size(A3[1])]);
+     coneq[cedge]:=-1;
+     coneq[extraedge1]:=1;
+     coneq[Size(coneq)-1]:=-1;
+     Append(A3,[coneq]);
+     Append(b3,[0]);
+     Append(linrows3,[b3]);
+     coneq:=ZeroMutable([1..Size(A3[1])]);
+     coneq[cedge]:=-1;
+     coneq[extraedge2]:=1;
+     coneq[Size(coneq)]:=-1;
+     Append(A3,[coneq]);
+     Append(b3,[0]);
+     Append(linrows3,[b3]);
+     coneq:=ZeroMutable([1..Size(A3[1])])+1;
+     Append(A3,[coneq]);
+     Append(b3,[1]);
+     A3:=matrixperm(A3,extraedge1,Size(coneq)-1);
+     A3:=matrixperm(A3,extraedge2,Size(coneq));
+     G := Group( [ () ] );
+     rlist1 := symCHM( A3, b3, linrows3, ncinstance[3], G, OnProjPts, OnProjIneq, 
+       false );
+     ######
+    Display( Concatenation( "stats:  No. of LPs solved = ", 
+       String( rlist1[3][1] ), ", \n\t No. of facets = ", 
+       String( Size( rlist1[2] ) ), 
+       ", \n\tDD stepsizes beyond initial hull = ", String( rlist1[3][2] ) ) 
+     );
+    rrA := [  ];
+    rrb := [  ];
+    for row  in rlist1[2]  do
+        onemap := function ( x )
+              return 1;
+          end;
+        if not row = List( [ 1 .. Size( row ) ], onemap )  then
+            Append( rrA, [ row{[ 1 .. Size( row ) - 1 ]} ] );
+            Append( rrb, [ row[Size( row )] ] );
+        fi;
+    od;
+    trans_ineq := [  ];
+    Oi := OrbitsDomain( G, rrA, OnProjIneq );
+    for O  in Oi  do
+        Append( trans_ineq, [ O[1] ] );
+    od;
+    return [ trans_ineq, RRparse( ncinstance, trans_ineq )];
+end;
+
+###############Subfunction that permutes column "c1" of matrix "A"
+###############with column "c2" of matrix "A"
+matrixperm:=function(A,c1,c2)
+local B,C,CC;
+	B:=TransposedMat(A);
+	C:=ShallowCopy(B);
+	C[c1]:=B[c2];
+	C[c2]:=B[c1];
+	CC:=TransposedMat(C);
+	return CC;
+end;
+
+####subfunction that removes a "list" of rows in matrix "A"
+Myremove:=function(A,list)
+local B,i;
+Sort(list);
+B:=ShallowCopy(A);
+Remove(B,list[1]);
+if Size(list)>1 then
+	for i in [2..Size(list)] do
+		Remove(B,list[i]-i+1);
+	od;
+fi;
+return B;
+end;
+
+#############subfunction that removes a "list" of columns in matrix "A"
+Myremovetrans:=function(A,list)
+local B;
+B:=TransposedMat(A);
+B:=Myremove(B,list);
+B:=TransposedMat(B);
+return B;
+end;
+
+##############subfunction that: 
+##############1. removes edge capacity constaints(ROWS of matrix [A|b]) H(listofedges[i])<=R(listofedges[i]) 
+##############2. permutes edge capacity variables R(listofedges[i]) with edge entropy variable H(listofedges[i]) (COLUMNS of matrix [A|b])
+##############2. removes edge capacity variables (COLUMNS of matrix A after step 2) R(listofedges[i])
+getridandtrans:=function(ncinstance,A,b,linrows,listofedges)
+local j,rrlist,conineq,Aprime,bprime,L,Lprime,linrowsprime,i,k,c1,c2;
+Aprime:=ShallowCopy(A);
+rrlist:=[];
+for j  in listofedges  do
+	conineq 
+	 := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+	conineq[j] := -1;
+	conineq[ncinstance[3] + set2int( [ j ] )] := 1;
+    for i in [1..Size(A)] do
+		if A[i]=conineq then
+		   Append(rrlist,[i]);
+		fi;
+    od;
+od;
+Aprime:=Myremove(Aprime,rrlist);
+bprime:=Myremove(b,rrlist);
+L:= ZeroMutable( [1..Size(b)] );
+for k in [1..Size(linrows)] do
+	L[linrows[k]]:=1;
+od;
+Lprime:=Myremove(L,rrlist);
+linrowsprime:=[];
+for k in [1..Size(Lprime)] do
+	if Lprime[k]=1 then
+		Append(linrowsprime,[k]);
+	fi;
+od;
+rrlist:=[];
+for i in listofedges do
+    c1:=i;
+    c2:=ncinstance[3] + set2int([i]);
+	Aprime:=matrixperm(Aprime,c1,c2); 
+	Append(rrlist,[c2]);
+od;
+Aprime:=Myremovetrans(Aprime,rrlist);
+return [Aprime,bprime,linrowsprime];
+end;
+
+###########subfunction that computes region of entropic vectors that is bounded together by
+###########shannon outer bound and network constraints of a network with out the R1+R2+..RN<=1 constaint
+NCShannonBoundedNosumto1:=function ( ncinstance )
+    local  ShOB, i, linrows, con, conlin, j, conineq;
+    ShOB := GenShannonUnBounded( ncinstance[3] );
+    i := Size( ShOB[1] ) + 1;
+    linrows := [  ];
+    for con  in ncinstance[1]  do
+        conlin := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 ] );
+        conlin[set2int( con[1] )] := 1;
+        conlin[set2int( con[2] )] := -1;
+        Append( ShOB[1], [ conlin ] );
+        Append( ShOB[2], [ 0 ] );
+        Append( linrows, [ i ] );
+        i := i + 1;
+    od;
+    conlin := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 ] );
+    for j  in [ 1 .. ncinstance[2] ]  do
+        conlin[set2int( [ j ] )] := 1;
+    od;
+    conlin[set2int( [ 1 .. ncinstance[2] ] )] := -1;
+    Append( ShOB[1], [ conlin ] );
+    Append( ShOB[2], [ 0 ] );
+    Append( linrows, [ i ] );
+    i := i + 1;
+    for j  in [ 1 .. Size( ShOB[1] ) ]  do
+        ShOB[1][j] := Concatenation( ZeroMutable( [ 1 .. ncinstance[3] ] ), 
+           ShOB[1][j] );
+    od;
+    for j  in [ 1 .. ncinstance[2] ]  do
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := 1;
+        conineq[ncinstance[3] + set2int( [ j ] )] := -1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := -1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+    od;
+    for j  in [ ncinstance[2] + 1 .. ncinstance[3] ]  do
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := -1;
+        conineq[ncinstance[3] + set2int( [ j ] )] := 1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := -1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+    od;
+    return [ ShOB[1], ShOB[2], linrows ];
+end;
+
+########subfunction that just permutes columns of matrix "A"
+Justmatrixperm:=function(A,ncinstance,listofedges)
+local i,c1,c2,Aprime;
+Aprime:=ShallowCopy(A);
+for i in listofedges do
+	c1:=i;
+	c2:=ncinstance[3] + set2int([i]);
+	Aprime:=matrixperm(Aprime,c1,c2);
+od;
+return Aprime;
+end;
+#######function that computes the outer bound of a sink-source merged network containing N1+N2 variables,
+#######where N1 and N2 denotes the number of variables in network net1_sink and that in network net2_source, respectively.
+NCRateRegionOBGRO:=function ( ncinstance, usesym, optargs,listofedges)
+    local  rlist, A, b,A1,b1, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
+    onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,c,list,dif,Ab,conineq;
+    rlist := NCShannonBoundedNosumto1( ncinstance );
+    A := rlist[1];
+    b := rlist[2];
+    linrows := rlist[3];
+    if usesym = false  then
+        G := Group( [ () ] );
+    else
+        G := NetSymGroup( ncinstance );
+    fi;
+    if Size( optargs ) > 0  then
+        nslist := [  ];
+        nsrec := optargs[1];
+        for idx  in RecNamesInt( nsrec )  do
+            lolos := nsrec.(idx);
+            for los  in lolos  do
+                if idx = 1  then
+                    ineq := ZYNonShannon( los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                else
+                    ineq := DFZNonShannon( idx - 1, los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                fi;
+            od;
+        od;
+        Append( A, nslist );
+        Append( b, ZeroMutable( [ 1 .. Size( nslist ) ] ) );
+    fi;
+    #####Getting rid of rows and switch columns
+    Ab:=getridandtrans(ncinstance,A,b,linrows,listofedges);
+    A1:=Ab[1];
+    b1:=Ab[2];
+    linrows:=Ab[3];
+   A:=[];
+   for i in [1..Size(A1)] do;
+	   Append(A,[A1[i]]);
+   od;
+    conineq := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3]-Size(listofedges) ] );
+    for j  in [ 1 .. ncinstance[3] ]  do
+        conineq[j] := 1;  
+    od;
+    Append( A, [ conineq ] );
+    Append( b1, [ 1 ] );#####R<Rvalue
+    #####
+    rlist1 := symCHM( A, b1, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
+       false );
+    Display( Concatenation( "stats:  No. of LPs solved = ", 
+       String( rlist1[3][1] ), ", \n\t No. of facets = ", 
+       String( Size( rlist1[2] ) ), 
+       ", \n\tDD stepsizes beyond initial hull = ", String( rlist1[3][2] ) ) 
+     );
+    rrA := [  ];
+    rrb := [  ];
+    for row  in rlist1[2]  do
+        onemap := function ( x )
+              return 1;
+          end;
+        if not row = List( [ 1 .. Size( row ) ], onemap )  then
+            Append( rrA, [ row{[ 1 .. Size( row ) - 1 ]} ] );
+            Append( rrb, [ row[Size( row )] ] );
+        fi;
+    od;
+    trans_ineq := [  ];
+    Oi := OrbitsDomain( G, rrA, OnProjIneq );
+    for O  in Oi  do
+        Append( trans_ineq, [ O[1] ] );
+    od;
+    return [ trans_ineq, RRparse( ncinstance, trans_ineq )];
+end;
