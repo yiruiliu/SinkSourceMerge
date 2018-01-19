@@ -543,22 +543,9 @@ NCRateRegionOBGRO:=function ( ncinstance, usesym, optargs,listofedges)
         Append( b, ZeroMutable( [ 1 .. Size( nslist ) ] ) );
     fi;
     #####Getting rid of rows and switch columns
-    Ab:=getridandtrans(ncinstance,A,b,linrows,listofedges);
-    A1:=Ab[1];
-    b1:=Ab[2];
-    linrows:=Ab[3];
-   A:=[];
-   for i in [1..Size(A1)] do;
-	   Append(A,[A1[i]]);
-   od;
-    conineq := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3]-Size(listofedges) ] );
-    for j  in [ 1 .. ncinstance[3] ]  do
-        conineq[j] := 1;  
-    od;
-    Append( A, [ conineq ] );
-    Append( b1, [ 1 ] );#####R<Rvalue
+    A:=Justmatrixperm(A,ncinstance,listofedges);
     #####
-    rlist1 := symCHM( A, b1, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
+    rlist1 := symCHM( A, b, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
        false );
     Display( Concatenation( "stats:  No. of LPs solved = ", 
        String( rlist1[3][1] ), ", \n\t No. of facets = ", 
