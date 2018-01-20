@@ -365,9 +365,6 @@ end;
 NCRateRegionOBCnet:=function ( ncinstance, usesym, optargs,listofedges)
     local  rlist, A, b, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, cedge, extraedge1,extraedge2,
     onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,A1,B1,B2,A2,c,list,dif,Ab;
-    cedge:= listofedges[1];
-    extraedge1:= listofedges[2];
-    extraedge2:= listofedges[3];
     rlist := NCShannonBounded( ncinstance );
     A := rlist[1];
     b := rlist[2];
