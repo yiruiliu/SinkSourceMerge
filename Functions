@@ -811,7 +811,7 @@ NCRateRegionOBGRO:=function ( ncinstance, usesym, optargs,listofedges)
 	Append(A,[A1[i]]);
    od;
     conineq := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3]-Size(listofedges) ] );
-    for j  in [ 1 .. ncinstance[3] ]  do
+    for j  in Difference([ 1 .. ncinstance[3] ],listofedges ) do
         conineq[j] := 1;  
     od;
     Append( A, [ conineq ] );
