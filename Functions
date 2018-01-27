@@ -635,6 +635,58 @@ Aprime:=Myremovetrans(Aprime,rrlist);
 return [Aprime,bprime,linrowsprime];
 end;
 
+########Add constraint H(Ug)<=H(In(g))
+getridandtransHlessthanInt:=function(ncinstance,A,b,linrows,listofedges)
+local j,rrlist,conineq,Aprime,bprime,L,Lprime,linrowsprime,i,k,c1,c2,b1;
+Aprime:=ShallowCopy(A);
+b1:=ShallowCopy(b);
+for i in [1..Size(listofedges)] do
+    for j in [1..Size(ncinstance[1])] do
+        if listofedges[i] in Difference(ncinstance[1][j][2],ncinstance[1][j][1]) then
+	    conineq 
+	     := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+	    conineq[ncinstance[3] + set2int([listofedges[i]])] := 1;
+	    conineq[ncinstance[3] + set2int(ncinstance[1][j][1])]:=-1;
+	    Append(Aprime,[conineq]);
+	    Append(b1,[0]);
+	fi;
+    od;
+od;
+rrlist:=[];
+for j  in listofedges  do
+	conineq 
+	 := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+	conineq[j] := -1;
+	conineq[ncinstance[3] + set2int( [ j ] )] := 1;
+    for i in [1..Size(A)] do
+		if A[i]=conineq then
+		   Append(rrlist,[i]);
+		fi;
+    od;
+od;
+Aprime:=Myremove(Aprime,rrlist);
+bprime:=Myremove(b1,rrlist);
+L:= ZeroMutable( [1..Size(b1)] );
+for k in [1..Size(linrows)] do
+	L[linrows[k]]:=1;
+od;
+Lprime:=Myremove(L,rrlist);
+linrowsprime:=[];
+for k in [1..Size(Lprime)] do
+	if Lprime[k]=1 then
+		Append(linrowsprime,[k]);
+	fi;
+od;
+rrlist:=[];
+for i in listofedges do
+    c1:=i;
+    c2:=ncinstance[3] + set2int([i]);
+	Aprime:=matrixperm(Aprime,c1,c2); 
+	Append(rrlist,[c2]);
+od;
+Aprime:=Myremovetrans(Aprime,rrlist);
+return [Aprime,bprime,linrowsprime];
+end;
 ###########subfunction that computes region of entropic vectors that is bounded together by
 ###########shannon outer bound and network constraints of a network with out the R1+R2+..RN<=1 constaint
 NCShannonBoundedNosumto1:=function ( ncinstance )
@@ -694,7 +746,7 @@ NCShannonBoundedNosumto1:=function ( ncinstance )
 end;
 
 #########subfunction being added on 01/22/2018
-NCShannonBoundedlowerbyzero:=function ( ncinstance,listofedges )
+NCShannonBoundedlowerbyzero:=function ( ncinstance,listofedges,indicate )
     local  ShOB, i, linrows, con, conlin, j, conineq;
     ShOB := GenShannonUnBounded( ncinstance[3] );
     i := Size( ShOB[1] ) + 1;
@@ -753,9 +805,90 @@ NCShannonBoundedlowerbyzero:=function ( ncinstance,listofedges )
     od;
     Append( ShOB[1], [ conineq ] );
     Append( ShOB[2], [ 1 ] );
+    if indicate=true then
+        for j in [1..ncinstance[2]] do
+	    conineq 
+            := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+	    conineq[ncinstance[3] + set2int( [ j ] )] := 1;
+	    Append( ShOB[1], [ conineq ] );
+            Append( ShOB[2], [ 2 ] );
+        od;
+    fi;
     return [ ShOB[1], ShOB[2], linrows ];
 end;
 
+###0<H(s)<w
+NCShannonBoundedlowerbyzeroHlessthanW:=function ( ncinstance,listofedges )
+    local  ShOB, i, linrows, con, conlin, j, conineq;
+    ShOB := GenShannonUnBounded( ncinstance[3] );
+    i := Size( ShOB[1] ) + 1;
+    linrows := [  ];
+    for con  in ncinstance[1]  do    #### H(Out(t),In(t))=H(In(t))
+        conlin := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 ] );
+        conlin[set2int( con[1] )] := 1;
+        conlin[set2int( con[2] )] := -1;
+        Append( ShOB[1], [ conlin ] );
+        Append( ShOB[2], [ 0 ] );
+        Append( linrows, [ i ] );
+        i := i + 1;
+    od;
+    conlin := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 ] );
+    for j  in [ 1 .. ncinstance[2] ]  do  #### H(s1,s2,..,sj)=H(s1)+H(s2)+,...,+H(sj)
+        conlin[set2int( [ j ] )] := 1;
+    od;
+    conlin[set2int( [ 1 .. ncinstance[2] ] )] := -1;
+    Append( ShOB[1], [ conlin ] );
+    Append( ShOB[2], [ 0 ] );
+    Append( linrows, [ i ] );
+    i := i + 1;
+    for j  in [ 1 .. Size( ShOB[1] ) ]  do
+        ShOB[1][j] := Concatenation( ZeroMutable( [ 1 .. ncinstance[3] ] ), 
+           ShOB[1][j] );
+    od;
+    for j  in [ 1 .. ncinstance[2] ] do  ###0<H<W for sources
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := -1;
+        conineq[ncinstance[3] + set2int( [ j ] )] := 1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[ncinstance[3] + set2int( [ j ] )] := -1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+    od;
+    #for j in listofedges do  ####H=W for edges in listofedges
+     #    conineq 
+      #   := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+	# conineq[j] := -1;
+	# conineq[ncinstance[3] + set2int( [ j ] )] := 1;
+#	 Append( ShOB[1], [ conineq ] );
+#         Append( ShOB[2], [ 0 ] );
+#	 Append( linrows, [ i ] );
+#         i := i + 1;
+#    od;
+    for j  in Difference([ ncinstance[2] + 1 .. ncinstance[3] ],listofedges) do
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := -1;     ######  H<=R
+        conineq[ncinstance[3] + set2int( [ j ] )] := 1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := -1;  ####  0<=R
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+    od;
+    conineq := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+    for j  in Difference([ 1 .. ncinstance[3] ],listofedges  )do
+        conineq[j] := 1;
+    od;
+    Append( ShOB[1], [ conineq ] );
+    Append( ShOB[2], [ 1 ] );
+    return [ ShOB[1], ShOB[2], linrows ];
+end;
 ########subfunction that just permutes columns of matrix "A"
 Justmatrixperm:=function(A,ncinstance,listofedges)
 local i,c1,c2,Aprime;
@@ -772,7 +905,7 @@ end;
 NCRateRegionOBGRO:=function ( ncinstance, usesym, optargs,listofedges)
     local  rlist, A, b,A1,b1, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
     onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,c,list,dif,Ab,conineq;
-    rlist := NCShannonBoundedNosumto1( ncinstance);
+    rlist := NCShannonBoundedNosumto1( ncinstance,);
     A := rlist[1];
     b := rlist[2];
     linrows := rlist[3];
@@ -876,7 +1009,7 @@ NCRateRegionOBGRO1:=function ( ncinstance, usesym, optargs,listofedges)
         Append( b, ZeroMutable( [ 1 .. Size( nslist ) ] ) );
     fi;
     #####Getting rid of rows and switch columns
-    Ab:=getridandtrans(ncinstance,A,b,linrows,listofedges);
+    Ab:=getridandtransHlessthanInt(ncinstance,A,b,linrows,listofedges);
     A1:=Ab[1];
     b1:=Ab[2];
     linrows:=Ab[3];
@@ -890,15 +1023,12 @@ NCRateRegionOBGRO1:=function ( ncinstance, usesym, optargs,listofedges)
     od;
     Append( A, [ conineq ] );
     Append( b1, [ 1 ] );#####R<Rvalue
-    for j  in listofedges  do
-        conineq := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3]-Size(listofedges) ] );
-        conineq[j] := 1;  
-	for i in [1..ncinstance[2]] do
-	    conineq[i]:=-1;
-	od;
-	Append(A,[conineq]);
-	Append(b1,[0]);
-    od;
+   # for j in listofedges do 
+#	 conineq := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3]-Size(listofedges) ] );
+ #        conineq[j] := 1;
+#	 Append( A, [ conineq ] );
+#	 Append( b1, [ 2 ] );#####R<Rvalue
+ #   od;
     #####
     rlist1 := symCHM( A, b1, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
        false );
@@ -923,10 +1053,10 @@ NCRateRegionOBGRO1:=function ( ncinstance, usesym, optargs,listofedges)
     return [ trans_ineq, RRparse( ncinstance, trans_ineq ),rlist1];
 end;
 ########function being added on 01/22/2018
-NCRateRegionOBaddlower:=function ( ncinstance, usesym, optargs,listofedges)
+NCRateRegionOBaddlower:=function ( ncinstance, usesym, optargs,listofedges,indicate)
     local  rlist, A, b,A1,b1, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
     onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,c,list,dif,Ab,conineq;
-    rlist := NCShannonBoundedlowerbyzero( ncinstance, listofedges);
+    rlist := NCShannonBoundedlowerbyzero( ncinstance, listofedges,indicate);
     A := rlist[1];
     b := rlist[2];
     linrows := rlist[3];
@@ -957,6 +1087,67 @@ NCRateRegionOBaddlower:=function ( ncinstance, usesym, optargs,listofedges)
     fi;
     #####Getting rid of rows and switch columns
     
+    #####
+    rlist1 := symCHM( A, b, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
+       false );
+    Display( Concatenation( "stats:  No. of LPs solved = ", 
+       String( rlist1[3][1] ), ", \n\t No. of facets = ", 
+       String( Size( rlist1[2] ) ), 
+       ", \n\tDD stepsizes beyond initial hull = ", String( rlist1[3][2] ) ) 
+     );
+    rrA := [  ];
+    rrb := [  ];
+    for row  in rlist1[2]  do
+        onemap := function ( x )
+              return 1;
+          end;
+        if not row = List( [ 1 .. Size( row ) ], onemap )  then
+            Append( rrA, [ row{[ 1 .. Size( row ) - 1 ]} ] );
+            Append( rrb, [ row[Size( row )] ] );
+        fi;
+    od;
+    trans_ineq := [  ];
+    Oi := OrbitsDomain( G, rrA, OnProjIneq );
+    for O  in Oi  do
+        Append( trans_ineq, [ O[1] ] );
+    od;
+    return [ trans_ineq, RRparse( ncinstance, trans_ineq ),rlist1];
+end;
+
+NCRateRegionOBaddlowerHlessthanW:=function ( ncinstance, usesym, optargs,listofedges)
+    local  rlist, A, b,A1,b1, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
+    onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,c,list,dif,Ab,conineq;
+    rlist := NCShannonBoundedlowerbyzeroHlessthanW( ncinstance, listofedges);
+    A := rlist[1];
+    b := rlist[2];
+    linrows := rlist[3];
+    if usesym = false  then
+        G := Group( [ () ] );
+    else
+        G := NetSymGroup( ncinstance );
+    fi;
+    if Size( optargs ) > 0  then
+        nslist := [  ];
+        nsrec := optargs[1];
+        for idx  in RecNamesInt( nsrec )  do
+            lolos := nsrec.(idx);
+            for los  in lolos  do
+                if idx = 1  then
+                    ineq := ZYNonShannon( los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                else
+                    ineq := DFZNonShannon( idx - 1, los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                fi;
+            od;
+        od;
+        Append( A, nslist );
+        Append( b, ZeroMutable( [ 1 .. Size( nslist ) ] ) );
+    fi;
+    #####Getting rid of rows and switch columns
+    A:=Justmatrixperm(A,ncinstance,listofedges);
     #####
     rlist1 := symCHM( A, b, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
        false );
