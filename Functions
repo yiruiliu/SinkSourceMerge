@@ -902,10 +902,86 @@ return Aprime;
 end;
 #######function that computes the outer bound of a sink-source merged network containing N1+N2 variables,
 #######where N1 and N2 denotes the number of variables in network net1_sink and that in network net2_source, respectively.
+#######w1+w2+R3+R4+R7+R8<=1
 NCRateRegionOBGRO:=function ( ncinstance, usesym, optargs,listofedges)
     local  rlist, A, b,A1,b1, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
     onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,c,list,dif,Ab,conineq;
-    rlist := NCShannonBoundedNosumto1( ncinstance,);
+    rlist := NCShannonBoundedNosumto1( ncinstance);
+    A := rlist[1];
+    b := rlist[2];
+    linrows := rlist[3];
+    if usesym = false  then
+        G := Group( [ () ] );
+    else
+        G := NetSymGroup( ncinstance );
+    fi;
+    if Size( optargs ) > 0  then
+        nslist := [  ];
+        nsrec := optargs[1];
+        for idx  in RecNamesInt( nsrec )  do
+            lolos := nsrec.(idx);
+            for los  in lolos  do
+                if idx = 1  then
+                    ineq := ZYNonShannon( los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                else
+                    ineq := DFZNonShannon( idx - 1, los, ncinstance[3] );
+                    ineqorb := Orbit( G, ineq, OnEntropySpace );
+                    Append( nslist, ineqorb );
+                fi;
+            od;
+        od;
+        Append( A, nslist );
+        Append( b, ZeroMutable( [ 1 .. Size( nslist ) ] ) );
+    fi;
+    #####Getting rid of rows and switch columns
+    Ab:=getridandtrans(ncinstance,A,b,linrows,listofedges);
+    A1:=Ab[1];
+    b1:=Ab[2];
+    linrows:=Ab[3];
+   A:=[];
+   for i in [1..Size(A1)] do
+	Append(A,[A1[i]]);
+   od;
+    conineq := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3]-Size(listofedges) ] );
+    for j  in Difference([ 1 .. ncinstance[3] ],listofedges) do
+        conineq[j] := 1;  
+    od;
+    Append( A, [ conineq ] );
+    Append( b1, [ 1 ] );#####R<Rvalue
+    #####
+    rlist1 := symCHM( A, b1, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
+       false );
+    Display( Concatenation( "stats:  No. of LPs solved = ", 
+       String( rlist1[3][1] ), ", \n\t No. of facets = ", 
+       String( Size( rlist1[2] ) ), 
+       ", \n\tDD stepsizes beyond initial hull = ", String( rlist1[3][2] ) ) 
+     );
+    rrA := [  ];
+    rrb := [  ];
+    for row  in rlist1[2]  do
+        onemap := function ( x )
+              return 1;
+          end;
+        if not row = List( [ 1 .. Size( row ) ], onemap )  then
+            Append( rrA, [ row{[ 1 .. Size( row ) - 1 ]} ] );
+            Append( rrb, [ row[Size( row )] ] );
+        fi;
+    od;
+    trans_ineq := [  ];
+    Oi := OrbitsDomain( G, rrA, OnProjIneq );
+    for O  in Oi  do
+        Append( trans_ineq, [ O[1] ] );
+    od;
+    return [ trans_ineq, RRparse( ncinstance, trans_ineq ),rlist1];
+end;
+
+#######w1+w2+R3+R4+R5+R6+R7+R8<=1
+NCRateRegionOBGROALLto1:=function ( ncinstance, usesym, optargs,listofedges)
+    local  rlist, A, b,A1,b1, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
+    onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,c,list,dif,Ab,conineq;
+    rlist := NCShannonBoundedNosumto1( ncinstance);
     A := rlist[1];
     b := rlist[2];
     linrows := rlist[3];
@@ -1325,6 +1401,108 @@ c[Alen+2]:=-1;
 Append(OB,[c]);
 Append(b,[0]);
 Append(linrows,[Size(b)]);
+OB:=MySortParallel(OB,list1);
+ rlist1 := symCHM( OB, b, linrows, Alen+Clen-projoutVariables, G, OnProjPts, OnProjIneq, 
+       false );
+return rlist1;
+end;
+
+####with  Anet.h5>=Cnet.w3,Anet.h6-Anet.h5>=Cnet.w1,Anet.h7-Anet.h5>=Cnet.w2. Anet.h5 and Cnet.h3 are common information
+ProjectJAnetOBJCnetOB3ineqone:=function(JAnetOB,JCnetOB,projoutVariables)
+local Alen,Clen,list,list1,i,OB,b,linrows,rlist1,G,c;
+Alen:=Size(JAnetOB[1]);
+Clen:=Size(JCnetOB[1]);
+list:=[1..Alen+Clen];
+list1:=ShallowCopy(list);
+if projoutVariables=8 then
+	for i in [1..Clen-5] do
+		list1[i+Alen-3]:=list[Size(list)-Clen+5+i];
+		list1[Size(list)-Clen+5+i]:=list[i+Alen-3];
+	od;
+elif projoutVariables=6 then
+	for i in [1..Clen-3] do
+		list1[i+Alen-3]:=list[Size(list)-Clen+3+i];
+		list1[Size(list)-Clen+3+i]:=list[i+Alen-3];
+	od;
+else 
+	Print("Error!!! projoutVariables shoule be either 6 or 8");
+	return;
+fi;
+OB:=ConcatenateOB(JAnetOB,JCnetOB);
+b:=ZeroMutable([1..Size(OB)]);
+G := Group( [ () ] );
+linrows:=[];
+c:=ZeroMutable( [1..Alen+Clen])+1;
+Append(OB,[c]);
+Append(b,[1]);
+c:=ZeroMutable( [1..Alen+Clen]);
+c[Alen-2]:=-1;
+c[Alen+3]:=1;
+Append(OB,[c]);
+Append(b,[0]);
+c:=ZeroMutable( [1..Alen+Clen]);
+c[Alen-1]:=-1;
+c[Alen-2]:=1;
+c[Alen+1]:=1;
+Append(OB,[c]);
+Append(b,[0]);
+c:=ZeroMutable( [1..Alen+Clen]);
+c[Alen]:=-1;
+c[Alen-2]:=1;
+c[Alen+2]:=1;
+Append(OB,[c]);
+Append(b,[0]);
+OB:=MySortParallel(OB,list1);
+ rlist1 := symCHM( OB, b, linrows, Alen+Clen-projoutVariables, G, OnProjPts, OnProjIneq, 
+       false );
+return rlist1;
+end;
+
+####with  Anet.h5<=Cnet.w3,Anet.h6-Anet.h5<=Cnet.w1,Anet.h7-Anet.h5<=Cnet.w2. Anet.h5 and Cnet.h3 are common information
+ProjectJAnetOBJCnetOB3ineqoneless:=function(JAnetOB,JCnetOB,projoutVariables)
+local Alen,Clen,list,list1,i,OB,b,linrows,rlist1,G,c;
+Alen:=Size(JAnetOB[1]);
+Clen:=Size(JCnetOB[1]);
+list:=[1..Alen+Clen];
+list1:=ShallowCopy(list);
+if projoutVariables=8 then
+	for i in [1..Clen-5] do
+		list1[i+Alen-3]:=list[Size(list)-Clen+5+i];
+		list1[Size(list)-Clen+5+i]:=list[i+Alen-3];
+	od;
+elif projoutVariables=6 then
+	for i in [1..Clen-3] do
+		list1[i+Alen-3]:=list[Size(list)-Clen+3+i];
+		list1[Size(list)-Clen+3+i]:=list[i+Alen-3];
+	od;
+else 
+	Print("Error!!! projoutVariables shoule be either 6 or 8");
+	return;
+fi;
+OB:=ConcatenateOB(JAnetOB,JCnetOB);
+b:=ZeroMutable([1..Size(OB)]);
+G := Group( [ () ] );
+linrows:=[];
+c:=ZeroMutable( [1..Alen+Clen])+1;
+Append(OB,[c]);
+Append(b,[1]);
+c:=ZeroMutable( [1..Alen+Clen]);
+c[Alen-2]:=1;
+c[Alen+3]:=-1;
+Append(OB,[c]);
+Append(b,[0]);
+c:=ZeroMutable( [1..Alen+Clen]);
+c[Alen-1]:=1;
+c[Alen-2]:=-1;
+c[Alen+1]:=-1;
+Append(OB,[c]);
+Append(b,[0]);
+c:=ZeroMutable( [1..Alen+Clen]);
+c[Alen]:=1;
+c[Alen-2]:=-1;
+c[Alen+2]:=-1;
+Append(OB,[c]);
+Append(b,[0]);
 OB:=MySortParallel(OB,list1);
  rlist1 := symCHM( OB, b, linrows, Alen+Clen-projoutVariables, G, OnProjPts, OnProjIneq, 
        false );
