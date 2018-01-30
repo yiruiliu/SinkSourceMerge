@@ -119,12 +119,82 @@ EqualityGenerate:=function(A,B,c)
 	return list;
 end;
 
+NCShannonBoundedFull:=function ( ncinstance )
+    local  ShOB, i, linrows, con, conlin, j, conineq;
+    ShOB := GenShannonUnBounded( ncinstance[3] );
+    i := Size( ShOB[1] ) + 1;
+    linrows := [  ];
+    for con  in ncinstance[1]  do
+        conlin := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 ] );
+        conlin[set2int( con[1] )] := 1;
+        conlin[set2int( con[2] )] := -1;
+        Append( ShOB[1], [ conlin ] );
+        Append( ShOB[2], [ 0 ] );
+        Append( linrows, [ i ] );
+        i := i + 1;
+    od;
+    conlin := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 ] );
+    for j  in [ 1 .. ncinstance[2] ]  do
+        conlin[set2int( [ j ] )] := 1;
+    od;
+    conlin[set2int( [ 1 .. ncinstance[2] ] )] := -1;
+    Append( ShOB[1], [ conlin ] );
+    Append( ShOB[2], [ 0 ] );
+    Append( linrows, [ i ] );
+    i := i + 1;
+    for j  in [ 1 .. Size( ShOB[1] ) ]  do
+        ShOB[1][j] := Concatenation( ZeroMutable( [ 1 .. ncinstance[3] ] ), 
+           ShOB[1][j] );
+    od;
+    for j  in [ 1 .. ncinstance[2] ]  do
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := 1;
+        conineq[ncinstance[3] + set2int( [ j ] )] := -1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := -1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+    od;
+    for j  in [ ncinstance[2] + 1 .. ncinstance[3] ]  do
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := -1;
+        conineq[ncinstance[3] + set2int( [ j ] )] := 1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+        conineq 
+         := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+        conineq[j] := -1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+    od;
+    conineq := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+    for j  in [ 1 .. ncinstance[3]-3 ]  do
+        conineq[j] := 1;
+    od;
+    Append( ShOB[1], [ conineq ] );
+    Append( ShOB[2], [ 1 ] );
+    for j in [ncinstance[3]-2..ncinstance[3]] do
+        conineq 
+        := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[3] ] );
+         conineq[j] := -1;
+        conineq[ncinstance[3] + set2int( [ j ] )] := 1;
+        Append( ShOB[1], [ conineq ] );
+        Append( ShOB[2], [ 0 ] );
+        Append( linrows, [ Size(ShOB) ] );
+    od;
+    return [ ShOB[1], ShOB[2], linrows ];
+end; 
 #######add equivalent constraint for Anet h5+h6=h(In(t1)); h5=h(In(t1))+h(In(t2))-h(In(t1),In(t2)); h7+h5=h(In(t2)). 
 ####### h5 is the full common information which is I(In(t2),In(t1))
 NCRateRegionOBAnetFull:=function ( ncinstance, usesym, optargs,cedge, extraedge1,extraedge2)
 local  rlist, A, b, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
     onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,i,j,A1,B1,B2,A2,c,list,dif;
-    rlist := NCShannonBounded( ncinstance );
+    rlist := NCShannonBoundedFull( ncinstance );
     A := rlist[1];
     b := rlist[2];
     linrows := rlist[3];
