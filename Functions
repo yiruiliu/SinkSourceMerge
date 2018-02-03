@@ -2375,8 +2375,12 @@ NCShannonBoundedForrMarginalEntropy:=function ( ncinstance )
     Append( ShOB[2], [ 0 ] );
     Append( linrows, [ i ] );
     i := i + 1;
+    for j in [1..ncinstance[3]] do
+    conlin := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 ] );
+    conineq[set2int( [ j ] )]:=-1;
     Append( ShOB[1], [ conineq ] );
-    Append( ShOB[2], [ 1 ] );
+    Append( ShOB[2], [ 0 ] );
+    od;
     return [ ShOB[1], ShOB[2], linrows ];
 end;
 
@@ -2384,8 +2388,8 @@ end;
 
 NCRateRegionOBForrMarginalEntropy:=function ( ncinstance, usesym, optargs )
     local  rlist, A, b, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
-    onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,conineq;
-    rlist := NCShannonBounded( ncinstance );
+    onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq,conineq,A1;
+    rlist := NCShannonBoundedForrMarginalEntropy( ncinstance );
     A := rlist[1];
     b := rlist[2];
     linrows := rlist[3];
@@ -2414,13 +2418,19 @@ NCRateRegionOBForrMarginalEntropy:=function ( ncinstance, usesym, optargs )
         Append( A, nslist );
         Append( b, ZeroMutable( [ 1 .. Size( nslist ) ] ) );
     fi;
-    A:=matrixpermForMarginalEntropy(A,[1..ncinstance[3]]);
+    ####
+    A1:=matrixpermForMarginalEntropy(A,[1..ncinstance[3]]);
+    A:=[];
+   for i in [1..Size(A1)] do
+	Append(A,[A1[i]]);
+   od;
     conineq := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 ] );
     for j  in [ 1 .. ncinstance[3] ]  do
         conineq[j] := 1;
     od;
-     Append( A, [ conineq ] );
+    Append( A, [ conineq ] );
     Append( b, [ 1 ] );
+    ####
     rlist1 := symCHM( A, b, linrows, ncinstance[3], G, OnProjPts, OnProjIneq, 
        false );
     Display( Concatenation( "stats:  No. of LPs solved = ", 
