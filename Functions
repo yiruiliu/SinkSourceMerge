@@ -2339,7 +2339,67 @@ for i in [1..Size(net2[2])] do
 od;
 return [AQ1,AW1];
 end;
-#####02/02/2018
+##############################02/02/2018
+
+RRparseH:=function ( nc, rr )
+    local  displaystr, row, i;
+    displaystr := "";
+    for row  in rr  do
+        if row{[ nc[2] + 1 .. nc[3] ]} = ZeroMutable( [ nc[2] + 1 .. nc[3] ] )
+           then
+            displaystr := Concatenation( displaystr, "0 " );
+        else
+            for i  in [ nc[2] + 1 .. nc[3] ]  do
+                if - row[i] > 0  then
+                    if - row[i] = 1  then
+                        displaystr := Concatenation( displaystr, "+ Hu", 
+                           String( i ), " " );
+                    else
+                        displaystr := Concatenation( displaystr, "+", 
+                           String( - row[i] ), " Hu", String( i ), " " );
+                    fi;
+                elif - row[i] < 0  then
+                    if - row[i] = -1  then
+                        displaystr := Concatenation( displaystr, "- Hu", 
+                           String( i ), " " );
+                    else
+                        displaystr 
+                         := Concatenation( displaystr, String( - row[i] ), 
+                           " Hu", String( i ), " " );
+                    fi;
+                fi;
+            od;
+        fi;
+        displaystr := Concatenation( displaystr, ">= " );
+        if row{[ 1 .. nc[2] ]} = ZeroMutable( [ 1 .. nc[2] ] )  then
+            displaystr := Concatenation( displaystr, "0 " );
+        else
+            for i  in [ 1 .. nc[2] ]  do
+                if row[i] > 0  then
+                    if row[i] = 1  then
+                        displaystr := Concatenation( displaystr, "+ Hs", 
+                           String( i ), " " );
+                    else
+                        displaystr := Concatenation( displaystr, "+", 
+                           String( row[i] ), " Hs", String( i ), " " );
+                    fi;
+                elif row[i] < 0  then
+                    if row[i] = -1  then
+                        displaystr := Concatenation( displaystr, "- Hs", 
+                           String( i ), " " );
+                    else
+                        displaystr 
+                         := Concatenation( displaystr, String( row[i] ), 
+                           " Hs", String( i ), " " );
+                    fi;
+                fi;
+            od;
+        fi;
+        displaystr := Concatenation( displaystr, "\n" );
+    od;
+    return displaystr;
+end;
+
 matrixpermForMarginalEntropy:=function(A,listofedges)
 local i,c1,c2,Aprime;
 Aprime:=ShallowCopy(A);
@@ -2390,11 +2450,11 @@ NCShannonBoundedForrMarginalEntropy:=function ( ncinstance )
         ShOB[1][j] := Concatenation( ZeroMutable( [ 1 .. ncinstance[2] ] ), 
            ShOB[1][j] );
     od;
-    for j  in [ 1 .. ncinstance[2] ]  do   #####0<H<W
+    for j  in [ 1 .. ncinstance[2] ]  do   #####0<w<H
         conineq 
          := ZeroMutable( [ 1 .. 2 ^ ncinstance[3] - 1 + ncinstance[2] ] );
-        conineq[j] := -1;
-        conineq[ncinstance[2] + set2int( [ j ] )] := 1;
+        conineq[j] := 1;
+        conineq[ncinstance[2] + set2int( [ j ] )] := -1;
         Append( ShOB[1], [ conineq ] );
         Append( ShOB[2], [ 0 ] );
         conineq 
@@ -2474,7 +2534,7 @@ NCRateRegionOBForrMarginalEntropy:=function ( ncinstance, usesym, optargs )
     for O  in Oi  do
         Append( trans_ineq, [ O[1] ] );
     od;
-    return [ trans_ineq, RRparse( ncinstance, trans_ineq ) ];
+    return [ trans_ineq, RRparseH( ncinstance, trans_ineq ) ];
 end;
 
 
@@ -2599,5 +2659,5 @@ NCRateRegionOBForrMarginalEntropy2:=function ( ncinstance, usesym, optargs )
     for O  in Oi  do
         Append( trans_ineq, [ O[1] ] );
     od;
-    return [ trans_ineq, RRparse( ncinstance, trans_ineq ) ,rlist1];
+    return [ trans_ineq, RRparseH( ncinstance, trans_ineq ) ,rlist1];
 end;
