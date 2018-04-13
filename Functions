@@ -1,3 +1,4 @@
+
 NCRateRegionOBrilist:=function ( ncinstance, usesym, optargs )
     local  rlist, A, b, linrows, G, rlist1, ineq, ineqorb, row, rrA, rrb, 
     onemap, nslist, idx, nsrec, los, lolos, Oi, O, trans_ineq;
@@ -2661,3 +2662,5 @@ NCRateRegionOBForrMarginalEntropy2:=function ( ncinstance, usesym, optargs )
     od;
     return [ trans_ineq, RRparseH( ncinstance, trans_ineq ) ,rlist1];
 end;
+
+
